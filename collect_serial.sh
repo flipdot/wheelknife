@@ -1,2 +1,2 @@
 #!/bin/bash
-screen -L /dev/ttyUSB0 9600
+screen -L -Logfile `date +%s`.csv /dev/ttyUSB0 9600
