@@ -6,6 +6,7 @@
 #define FRONT_SENSOR_ECHO 4
 #define BACK_SENSOR_TRIGGER 32
 #define BACK_SENSOR_ECHO 34
+#define TIMEOUT 25000
 
 long duration;
 int front_distance;
@@ -30,8 +31,9 @@ int get_distance(int triggerPin, int echoPin) {
   digitalWrite(triggerPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2);
   // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH);
+  duration = pulseIn(echoPin, HIGH, TIMEOUT);
   // Calculating the distance
   return duration*0.034/2;
 }
@@ -40,6 +42,8 @@ void loop() {
   front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
   back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
   // Prints the distance on the Serial Monitor
+  Serial.print(millis());
+  Serial.print(",");
   Serial.print(front_distance);
   Serial.print(",");
   Serial.print(back_distance);
