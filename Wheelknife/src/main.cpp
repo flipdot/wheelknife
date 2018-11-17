@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "average.h"
 
 #define LED_BUILTIN 2
 #define GREEN_LED 19
@@ -11,6 +12,10 @@
 long duration;
 int front_distance;
 int back_distance;
+int last_front_distance;
+int last_back_distance;
+MovingAverage front_ma = MovingAverage(10);
+MovingAverage back_ma = MovingAverage(10);
 
 void setup() {
   // initialize LED digital pin as an output.
@@ -39,13 +44,17 @@ int get_distance(int triggerPin, int echoPin) {
 }
 
 void loop() {
-  front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
-  back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
+  last_front_distance = front_distance;
+  last_back_distance = back_distance;
+  front_distance = front_ma.update(get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO));
+  back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
   // Prints the distance on the Serial Monitor
-  Serial.print(millis());
-  Serial.print(",");
-  Serial.print(front_distance);
-  Serial.print(",");
-  Serial.print(back_distance);
-  Serial.println();
+  if (last_front_distance != front_distance || last_back_distance != back_distance) {
+    Serial.print(millis());
+    Serial.print(",");
+    Serial.print(front_distance);
+    Serial.print(",");
+    Serial.print(back_distance);
+    Serial.println();
+  }
 }
