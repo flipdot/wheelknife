@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
 #include "average.h"
 
 #define LED_BUILTIN 2
@@ -26,6 +29,31 @@ void setup() {
   pinMode(BACK_SENSOR_TRIGGER, OUTPUT);
   pinMode(BACK_SENSOR_ECHO, INPUT);
   Serial.begin(9600);
+  if(!SD.begin()){
+    Serial.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+  if(cardType == CARD_NONE){
+    Serial.println("No SD card attached");
+    return;
+  }
+  uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+  Serial.printf("SD Card Size: %lluMB\n", cardSize);
+}
+
+void appendFile(fs::FS &fs, const char * path, const char * message){
+    // Serial.printf("Appending to file: %s\n", path);
+
+    File file = fs.open(path, FILE_APPEND);
+    if(!file){
+        Serial.println("Failed to open file for appending");
+        return;
+    }
+    if (!file.print(message)){
+        Serial.println("Append failed");
+    }
+    file.close();
 }
 
 int get_distance(int triggerPin, int echoPin) {
@@ -50,11 +78,21 @@ void loop() {
   back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
   // Prints the distance on the Serial Monitor
   if (last_front_distance != front_distance || last_back_distance != back_distance) {
-    Serial.print(millis());
-    Serial.print(",");
-    Serial.print(front_distance);
-    Serial.print(",");
-    Serial.print(back_distance);
-    Serial.println();
+    char chr_buf[30];
+    itoa(millis(), chr_buf, 10);
+    appendFile(SD, "/log.csv", chr_buf);
+    appendFile(SD, "/log.csv", ",");
+    itoa(front_distance, chr_buf, 10);
+    appendFile(SD, "/log.csv", chr_buf);
+    appendFile(SD, "/log.csv", ",");
+    itoa(back_distance, chr_buf, 10);
+    appendFile(SD, "/log.csv", chr_buf);
+    appendFile(SD, "/log.csv", "\n");
+    // Serial.print(millis());
+    // Serial.print(",");
+    // Serial.print(front_distance);
+    // Serial.print(",");
+    // Serial.print(back_distance);
+    // Serial.println();
   }
 }
