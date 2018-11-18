@@ -11,6 +11,7 @@
 #define BACK_SENSOR_TRIGGER 32
 #define BACK_SENSOR_ECHO 34
 #define DISABLE_WRITE 17
+#define GROUND_TRUTH 16
 #define TIMEOUT 25000
 
 long duration;
@@ -30,6 +31,7 @@ void setup() {
   pinMode(BACK_SENSOR_TRIGGER, OUTPUT);
   pinMode(BACK_SENSOR_ECHO, INPUT);
   pinMode(DISABLE_WRITE, INPUT_PULLUP);
+  pinMode(GROUND_TRUTH, INPUT_PULLUP);
   Serial.begin(9600);
   if(!SD.begin()){
     Serial.println("Card Mount Failed");
@@ -75,6 +77,7 @@ int get_distance(int triggerPin, int echoPin) {
 
 void loop() {
   int disable_write = digitalRead(DISABLE_WRITE);
+  int ground_truth = digitalRead(GROUND_TRUTH);
   if (disable_write) {
     digitalWrite(GREEN_LED, HIGH);
     return;
@@ -87,7 +90,7 @@ void loop() {
   front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
   back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
   // Prints the distance on the Serial Monitor
-  if (last_front_distance != front_distance || last_back_distance != back_distance) {
+  if (true || last_front_distance != front_distance || last_back_distance != back_distance) {
     char chr_buf[30];
     itoa(millis(), chr_buf, 10);
     appendFile(SD, "/log.csv", chr_buf);
@@ -96,6 +99,9 @@ void loop() {
     appendFile(SD, "/log.csv", chr_buf);
     appendFile(SD, "/log.csv", ",");
     itoa(back_distance, chr_buf, 10);
+    appendFile(SD, "/log.csv", chr_buf);
+    appendFile(SD, "/log.csv", ",");
+    itoa(ground_truth, chr_buf, 10);
     appendFile(SD, "/log.csv", chr_buf);
     appendFile(SD, "/log.csv", "\n");
     // Serial.print(millis());
