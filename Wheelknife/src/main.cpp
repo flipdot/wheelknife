@@ -5,11 +5,12 @@
 #include "average.h"
 
 #define LED_BUILTIN 2
-#define GREEN_LED 19
+#define GREEN_LED 21
 #define FRONT_SENSOR_TRIGGER 2
 #define FRONT_SENSOR_ECHO 4
 #define BACK_SENSOR_TRIGGER 32
 #define BACK_SENSOR_ECHO 34
+#define DISABLE_WRITE 17
 #define TIMEOUT 25000
 
 long duration;
@@ -28,6 +29,7 @@ void setup() {
   pinMode(FRONT_SENSOR_ECHO, INPUT);
   pinMode(BACK_SENSOR_TRIGGER, OUTPUT);
   pinMode(BACK_SENSOR_ECHO, INPUT);
+  pinMode(DISABLE_WRITE, INPUT_PULLUP);
   Serial.begin(9600);
   if(!SD.begin()){
     Serial.println("Card Mount Failed");
@@ -72,10 +74,18 @@ int get_distance(int triggerPin, int echoPin) {
 }
 
 void loop() {
+  int disable_write = digitalRead(DISABLE_WRITE);
+  if (disable_write) {
+    digitalWrite(GREEN_LED, HIGH);
+    return;
+  }
+  digitalWrite(GREEN_LED, LOW);
   last_front_distance = front_distance;
   last_back_distance = back_distance;
-  front_distance = front_ma.update(get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO));
-  back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
+  // front_distance = front_ma.update(get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO));
+  // back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
+  front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
+  back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
   // Prints the distance on the Serial Monitor
   if (last_front_distance != front_distance || last_back_distance != back_distance) {
     char chr_buf[30];
