@@ -20,6 +20,8 @@ int front_distance;
 int back_distance;
 int last_front_distance;
 int last_back_distance;
+int last_ground_truth1;
+int last_ground_truth2;
 MovingAverage front_ma = MovingAverage(10);
 MovingAverage back_ma = MovingAverage(10);
 
@@ -62,6 +64,21 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
     file.close();
 }
 
+void appendMeasurement(int start_time, int mid_time, int end_time, int front_distance, int back_distance, int ground_truth1, int ground_truth2) {
+  // To analyse the data more preciseley, we want to keep start and end time of all measurements.
+  // This may be subject to change.
+  char buf[128];
+  sprintf(buf, "%d,%d,%d,%d,%d,%d,%d\n", start_time,mid_time,end_time, front_distance,back_distance ground_truth1,ground_truth2);
+
+  //if (last_front_distance != front_distance || last_back_distance != back_distance || last_ground_truth1 != ground_truth1 || last_ground_truth2 != ground_truth2) {
+    appendFile(SD, "/log.csv", chr_buf);
+  //}
+  last_front_distance = front_distance;
+  last_back_distance = back_distance;
+  last_ground_truth1 = ground_truth1;
+  last_ground_truth2 = ground_truth2;
+}
+
 int get_distance(int triggerPin, int echoPin) {
   // Clears the trigPin
   digitalWrite(triggerPin, LOW);
@@ -84,35 +101,24 @@ void loop() {
     return;
   }
   digitalWrite(GREEN_LED, LOW);
-  last_front_distance = front_distance;
-  last_back_distance = back_distance;
   // front_distance = front_ma.update(get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO));
   // back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
+  int startTime = millis();
   front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
+  int midTime = millis();
   back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
-  // Prints the distance on the Serial Monitor
-  if (true || last_front_distance != front_distance || last_back_distance != back_distance) {
-    char chr_buf[30];
-    itoa(millis(), chr_buf, 10);
-    appendFile(SD, "/log.csv", chr_buf);
-    appendFile(SD, "/log.csv", ",");
-    itoa(front_distance, chr_buf, 10);
-    appendFile(SD, "/log.csv", chr_buf);
-    appendFile(SD, "/log.csv", ",");
-    itoa(back_distance, chr_buf, 10);
-    appendFile(SD, "/log.csv", chr_buf);
-    appendFile(SD, "/log.csv", ",");
-    itoa(digitalRead(GROUND_TRUTH_A), chr_buf, 10);
-    appendFile(SD, "/log.csv", chr_buf);
-    appendFile(SD, "/log.csv", ",");
-    itoa(digitalRead(GROUND_TRUTH_B), chr_buf, 10);
-    appendFile(SD, "/log.csv", chr_buf);
-    appendFile(SD, "/log.csv", "\n");
-    // Serial.print(millis());
-    // Serial.print(",");
-    // Serial.print(front_distance);
-    // Serial.print(",");
-    // Serial.print(back_distance);
-    // Serial.println();
-  }
+  int endTime = millis();
+
+  appendMeasurement(startTime, midTime, endTime, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+
+  #ifdef DEBUG
+    // Prints the distance on the Serial Monitor
+    Serial.print(millis());
+    Serial.print(",");
+    Serial.print(front_distance);
+    Serial.print(",");
+    Serial.print(back_distance);
+    Serial.println();
+  #endif
 }
+
