@@ -42,7 +42,7 @@ void setup() {
     return;
   }
   uint8_t cardType = SD.cardType();
-  if(cardType == CARD_NONE){
+  if(cardType == CARD_NONE) {
     Serial.println("No SD card attached");
     return;
   }
@@ -50,18 +50,18 @@ void setup() {
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
 }
 
-void appendFile(fs::FS &fs, const char * path, const char * message){
-    // Serial.printf("Appending to file: %s\n", path);
+void appendFile(fs::FS &fs, const char * path, const char * message) {
+  // Serial.printf("Appending to file: %s\n", path);
 
-    File file = fs.open(path, FILE_APPEND);
-    if(!file){
-        Serial.println("Failed to open file for appending");
-        return;
-    }
-    if (!file.print(message)){
-        Serial.println("Append failed");
-    }
-    file.close();
+  File file = fs.open(path, FILE_APPEND);
+  if(!file){
+    Serial.println("Failed to open file for appending");
+    return;
+  }
+  if (!file.print(message)) {
+    Serial.println("Append failed");
+  }
+  file.close();
 }
 
 void appendMeasurement(int start_time, int mid_time, int end_time, int front_distance, int back_distance, int ground_truth1, int ground_truth2) {
@@ -101,8 +101,7 @@ void loop() {
     return;
   }
   digitalWrite(GREEN_LED, LOW);
-  // front_distance = front_ma.update(get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO));
-  // back_distance = back_ma.update(get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO));
+  
   int startTime = millis();
   front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
   int midTime = millis();
