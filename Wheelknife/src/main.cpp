@@ -14,7 +14,7 @@
 #define GROUND_TRUTH_A 16
 #define GROUND_TRUTH_B 0
 #define TIMEOUT 25000
-#define DEBUG 1
+//#define DEBUG
 
 long duration;
 int last_front_distance;
@@ -109,6 +109,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message) {
   if (sdcard_disabled) {
     return;
   }
+  digitalWrite(GREEN_LED, HIGH);
   File file = fs.open(path, FILE_APPEND);
   if(!file){
     Serial.println("Failed to open file for appending");
@@ -118,6 +119,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message) {
     Serial.println("Append failed");
   }
   file.close();
+  digitalWrite(GREEN_LED, LOW);
 }
 
 void appendMeasurement(int start_time, int mid_time, int end_time, int front_distance, int back_distance, int ground_truth1, int ground_truth2) {
@@ -177,7 +179,7 @@ void loop() {
 
   int disable_write = digitalRead(DISABLE_WRITE);
   if (disable_write) {
-    digitalWrite(GREEN_LED, HIGH);
+    // digitalWrite(GREEN_LED, HIGH);
     Serial.println("Write protection, skipping everything");
     return;
   }
