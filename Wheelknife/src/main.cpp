@@ -6,20 +6,22 @@
 
 #define LED_BUILTIN 2
 #define GREEN_LED 21
-#define FRONT_SENSOR_TRIGGER 2
+#define FRONT_TRIGGER_PIN 2
 #define FRONT_SENSOR_ECHO 4
-#define BACK_SENSOR_TRIGGER 32
+#define BACK_TRIGGER_PIN 32
 #define BACK_SENSOR_ECHO 34
 #define DISABLE_WRITE 17
 #define GROUND_TRUTH_A 16
 #define GROUND_TRUTH_B 0
 #define TIMEOUT 25000
+#define DEBUG 1
 
 long duration;
 int last_front_distance;
 int last_back_distance;
 int last_ground_truth1;
 int last_ground_truth2;
+bool sdcard_disabled;
 MovingAverage front_ma = MovingAverage(10);
 MovingAverage back_ma = MovingAverage(10);
 
@@ -27,7 +29,7 @@ MovingAverage back_ma = MovingAverage(10);
 #define MEASURING 0
 #define READY 1
 #define SAMPLE_INTERVAL 25500 // in µs -> this is the hcsr04 timeout
-#define TRIGGER_PIN FRONT_SENSOR_TRIGGER
+#define TRIGGER_PIN FRONT_TRIGGER_PIN
 
 volatile uint8_t state_front;
 volatile uint8_t state_back;
@@ -65,9 +67,9 @@ void setup() {
   // initialize LED digital pin as an output.
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
-  pinMode(FRONT_SENSOR_TRIGGER, OUTPUT);
+  pinMode(FRONT_TRIGGER_PIN, OUTPUT);
   // pinMode(FRONT_SENSOR_ECHO, INPUT);
-  pinMode(BACK_SENSOR_TRIGGER, OUTPUT);
+  pinMode(BACK_TRIGGER_PIN, OUTPUT);
   // pinMode(BACK_SENSOR_ECHO, INPUT);
   pinMode(DISABLE_WRITE, INPUT_PULLUP);
   pinMode(GROUND_TRUTH_A, INPUT_PULLUP);
@@ -83,26 +85,30 @@ void setup() {
   // setup Serial
   Serial.begin(9600);
 
+  // init check_time
+  check_time = micros();
+
   // setup SD-Card
   if(!SD.begin()){
     Serial.println("Card Mount Failed");
+    sdcard_disabled = true;
     return;
   }
   uint8_t cardType = SD.cardType();
   if(cardType == CARD_NONE) {
     Serial.println("No SD card attached");
+    sdcard_disabled = true;
     return;
   }
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
-
-  // init check_time
-  check_time = micros();
+  sdcard_disabled = false;
 }
 
 void appendFile(fs::FS &fs, const char * path, const char * message) {
-  // Serial.printf("Appending to file: %s\n", path);
-
+  if (sdcard_disabled) {
+    return;
+  }
   File file = fs.open(path, FILE_APPEND);
   if(!file){
     Serial.println("Failed to open file for appending");
@@ -147,12 +153,15 @@ int get_distance(int triggerPin, int echoPin) {
 void trigger_hcsr04() 
 {
   // Clears the trigPin
-  digitalWrite(TRIGGER_PIN, LOW);
+  digitalWrite(FRONT_TRIGGER_PIN, LOW);
+  digitalWrite(BACK_TRIGGER_PIN, LOW);
   delayMicroseconds(2);
   // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(TRIGGER_PIN, HIGH);
+  digitalWrite(FRONT_TRIGGER_PIN, HIGH);
+  digitalWrite(BACK_TRIGGER_PIN, HIGH);
   delayMicroseconds(10);
-  digitalWrite(TRIGGER_PIN, LOW);
+  digitalWrite(FRONT_TRIGGER_PIN, LOW);
+  digitalWrite(BACK_TRIGGER_PIN, LOW);
   delayMicroseconds(2);
 }
 
@@ -169,24 +178,29 @@ void loop() {
   int disable_write = digitalRead(DISABLE_WRITE);
   if (disable_write) {
     digitalWrite(GREEN_LED, HIGH);
+    Serial.println("Write protection, skipping everything");
     return;
   }
   digitalWrite(GREEN_LED, LOW);
 
+  
   if (state_front == READY && state_back == READY) {
     // both sensors are ready, save the measurements
     int front_distance = flight_time_front * 0.034 / 2;
     int back_distance = flight_time_back * 0.034 / 2;
     appendMeasurement(startTime, /*midTime*/ startTime - flight_time_front, /*endTime*/ startTime - flight_time_back, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+    #ifdef DEBUG
+      // Prints the distance on the Serial Monitor
+      Serial.print(millis());
+      Serial.print(",");
+      Serial.print(front_distance);
+      Serial.print(",");
+      Serial.print(back_distance);
+      Serial.println();
+    #endif
+    state_back = !READY;
+    state_front = !READY;
   }
 
-  #ifdef DEBUG
-    // Prints the distance on the Serial Monitor
-    Serial.print(millis());
-    Serial.print(",");
-    Serial.print(front_distance);
-    Serial.print(",");
-    Serial.print(back_distance);
-    Serial.println();
-  #endif
+
 }
