@@ -16,8 +16,8 @@
 #define TIMEOUT 25000
 
 long duration;
-int front_distance;
-int back_distance;
+// int front_distance;
+// int back_distance;
 int last_front_distance;
 int last_back_distance;
 int last_ground_truth1;
@@ -25,18 +25,67 @@ int last_ground_truth2;
 MovingAverage front_ma = MovingAverage(10);
 MovingAverage back_ma = MovingAverage(10);
 
+// max' interrupt based stuff
+#define MEASURING 0
+#define READY 1
+#define SAMPLE_INTERVAL 25500 // in µs -> this is the hcsr04 timeout
+#define TRIGGER_PIN FRONT_SENSOR_TRIGGER
+
+volatile uint8_t state_front;
+volatile uint8_t state_back;
+volatile unsigned long flight_time_front;
+volatile unsigned long flight_time_back;
+unsigned long check_time;
+uint16_t front_distance;
+uint16_t back_distance;
+
+void ISR_Front_Sensor()
+{
+  if (digitalRead(FRONT_SENSOR_ECHO)) {
+    flight_time_front = micros();
+    state_front = MEASURING;
+  }
+  else {
+    flight_time_front = micros() - flight_time_front;
+    state_front = READY;
+  }
+}
+
+void ISR_Back_Sensor()
+{
+  if (digitalRead(BACK_SENSOR_ECHO)) {
+    flight_time_back = micros();
+    state_back = MEASURING;
+  }
+  else {
+    flight_time_back = micros() - flight_time_front;
+    state_back = READY;
+  }
+}
+
 void setup() {
   // initialize LED digital pin as an output.
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
   pinMode(FRONT_SENSOR_TRIGGER, OUTPUT);
-  pinMode(FRONT_SENSOR_ECHO, INPUT);
+  // pinMode(FRONT_SENSOR_ECHO, INPUT);
   pinMode(BACK_SENSOR_TRIGGER, OUTPUT);
-  pinMode(BACK_SENSOR_ECHO, INPUT);
+  // pinMode(BACK_SENSOR_ECHO, INPUT);
   pinMode(DISABLE_WRITE, INPUT_PULLUP);
   pinMode(GROUND_TRUTH_A, INPUT_PULLUP);
   pinMode(GROUND_TRUTH_B, INPUT_PULLUP);
+
+  // get inputs ready for interrupts
+  pinMode(FRONT_SENSOR_ECHO, INPUT_PULLDOWN);
+  pinMode(BACK_SENSOR_ECHO, INPUT_PULLDOWN);
+  // set interrupt modes, link to input pins and ISRs
+  attachInterrupt(digitalPinToInterrupt(FRONT_SENSOR_ECHO), ISR_Front_Sensor, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(BACK_SENSOR_ECHO), ISR_Back_Sensor, CHANGE);
+
+  // setup Serial
   Serial.begin(9600);
+
+  // setup SD-Card
   if(!SD.begin()){
     Serial.println("Card Mount Failed");
     return;
@@ -48,6 +97,9 @@ void setup() {
   }
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
+
+  // init check_time
+  check_time = micros();
 }
 
 void appendFile(fs::FS &fs, const char * path, const char * message) {
@@ -94,21 +146,50 @@ int get_distance(int triggerPin, int echoPin) {
   return duration*0.034/2;
 }
 
+void trigger_hcsr04() 
+{
+  // Clears the trigPin
+  digitalWrite(TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+}
+
 void loop() {
+  unsigned long startTime;
+  
+  if (micros() - check_time >= SAMPLE_INTERVAL) {
+    // send burst 
+    trigger_hcsr04();
+    startTime = micros();
+    check_time = micros();
+  }
+
+  if (state_front == READY) {
+    front_distance = flight_time_front * 0.034 / 2;
+  }
+  if (state_back == READY) {
+    back_distance = flight_time_back * 0.034 / 2;
+  }
+
   int disable_write = digitalRead(DISABLE_WRITE);
   if (disable_write) {
     digitalWrite(GREEN_LED, HIGH);
     return;
   }
   digitalWrite(GREEN_LED, LOW);
-  
-  int startTime = millis();
-  front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
-  int midTime = millis();
-  back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
-  int endTime = millis();
 
-  appendMeasurement(startTime, midTime, endTime, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+  appendMeasurement(startTime, /*midTime*/ startTime - flight_time_front, /*endTime*/ startTime - flight_time_back, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+  
+  // int startTime = millis();
+  // front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
+  // int midTime = millis();
+  // back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
+  // int endTime = millis();
+  // appendMeasurement(startTime, midTime, endTime, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
 
   #ifdef DEBUG
     // Prints the distance on the Serial Monitor
