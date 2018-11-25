@@ -68,10 +68,10 @@ void appendMeasurement(int start_time, int mid_time, int end_time, int front_dis
   // To analyse the data more preciseley, we want to keep start and end time of all measurements.
   // This may be subject to change.
   char buf[128];
-  sprintf(buf, "%d,%d,%d,%d,%d,%d,%d\n", start_time,mid_time,end_time, front_distance,back_distance ground_truth1,ground_truth2);
+  sprintf(buf, "%d,%d,%d,%d,%d,%d,%d\n", start_time,mid_time,end_time, front_distance,back_distance, ground_truth1,ground_truth2);
 
   //if (last_front_distance != front_distance || last_back_distance != back_distance || last_ground_truth1 != ground_truth1 || last_ground_truth2 != ground_truth2) {
-    appendFile(SD, "/log.csv", chr_buf);
+    appendFile(SD, "/log.csv", buf);
   //}
   last_front_distance = front_distance;
   last_back_distance = back_distance;
