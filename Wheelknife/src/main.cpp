@@ -16,8 +16,6 @@
 #define TIMEOUT 25000
 
 long duration;
-// int front_distance;
-// int back_distance;
 int last_front_distance;
 int last_back_distance;
 int last_ground_truth1;
@@ -168,13 +166,6 @@ void loop() {
     check_time = micros();
   }
 
-  if (state_front == READY) {
-    front_distance = flight_time_front * 0.034 / 2;
-  }
-  if (state_back == READY) {
-    back_distance = flight_time_back * 0.034 / 2;
-  }
-
   int disable_write = digitalRead(DISABLE_WRITE);
   if (disable_write) {
     digitalWrite(GREEN_LED, HIGH);
@@ -182,14 +173,12 @@ void loop() {
   }
   digitalWrite(GREEN_LED, LOW);
 
-  appendMeasurement(startTime, /*midTime*/ startTime - flight_time_front, /*endTime*/ startTime - flight_time_back, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
-  
-  // int startTime = millis();
-  // front_distance = get_distance(FRONT_SENSOR_TRIGGER, FRONT_SENSOR_ECHO);
-  // int midTime = millis();
-  // back_distance = get_distance(BACK_SENSOR_TRIGGER, BACK_SENSOR_ECHO);
-  // int endTime = millis();
-  // appendMeasurement(startTime, midTime, endTime, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+  if (state_front == READY && state_back == READY) {
+    // both sensors are ready, save the measurements
+    int front_distance = flight_time_front * 0.034 / 2;
+    int back_distance = flight_time_back * 0.034 / 2;
+    appendMeasurement(startTime, /*midTime*/ startTime - flight_time_front, /*endTime*/ startTime - flight_time_back, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+  }
 
   #ifdef DEBUG
     // Prints the distance on the Serial Monitor
@@ -201,4 +190,3 @@ void loop() {
     Serial.println();
   #endif
 }
-
