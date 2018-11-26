@@ -43,11 +43,11 @@ volatile unsigned long start_time_back;
 void ISR_Front_Sensor()
 {
   if (digitalRead(ECHO_PIN_FRONT)) {
-    flight_time_front = micros();
+    start_time_front = micros();
     state_front = MEASURING;
   }
   else {
-    flight_time_front = micros() - flight_time_front;
+    flight_time_front = micros() - start_time_front;
     state_front = READY;
   }
 }
@@ -56,11 +56,11 @@ void ISR_Front_Sensor()
 void ISR_Back_Sensor()
 {
   if (digitalRead(ECHO_PIN_BACK)) {
-    flight_time_back = micros();
+    start_time_back = micros();
     state_back = MEASURING;
   }
   else {
-    flight_time_back = micros() - flight_time_front;
+    flight_time_back = micros() - start_time_front;
     state_back = READY;
   }
 }
