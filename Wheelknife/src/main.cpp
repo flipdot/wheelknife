@@ -25,20 +25,22 @@ bool sdcard_disabled;
 MovingAverage front_ma = MovingAverage(10);
 MovingAverage back_ma = MovingAverage(10);
 
-// max' interrupt based stuff
+/* Max' interrupt based stuff */
 #define MEASURING 0
 #define READY 1
-#define SAMPLE_INTERVAL 25500 // in µs -> this is the hcsr04 timeout
+#define SAMPLE_INTERVAL 25000 // in µs -> this is the hcsr04 timeout
 #define TRIGGER_PIN FRONT_TRIGGER_PIN
 
+// state variables that indicate whether a measurement is in progress or ready
 volatile uint8_t state_front;
 volatile uint8_t state_back;
+// storing the flight time in us
 volatile unsigned long flight_time_front;
 volatile unsigned long flight_time_back;
+// used to check if a new measuremnt should be executed
 unsigned long check_time;
-uint16_t front_distance;
-uint16_t back_distance;
 
+/* ISR to capture the flight time at the front sensor */
 void ISR_Front_Sensor()
 {
   if (digitalRead(FRONT_SENSOR_ECHO)) {
@@ -51,6 +53,7 @@ void ISR_Front_Sensor()
   }
 }
 
+/* ISR to capture the flight time at the front sensor */
 void ISR_Back_Sensor()
 {
   if (digitalRead(BACK_SENSOR_ECHO)) {
@@ -68,25 +71,20 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
   pinMode(FRONT_TRIGGER_PIN, OUTPUT);
-  // pinMode(FRONT_SENSOR_ECHO, INPUT);
   pinMode(BACK_TRIGGER_PIN, OUTPUT);
-  // pinMode(BACK_SENSOR_ECHO, INPUT);
   pinMode(DISABLE_WRITE, INPUT_PULLUP);
   pinMode(GROUND_TRUTH_A, INPUT_PULLUP);
   pinMode(GROUND_TRUTH_B, INPUT_PULLUP);
 
-  // get inputs ready for interrupts
+  // get inputs ready
   pinMode(FRONT_SENSOR_ECHO, INPUT_PULLDOWN);
   pinMode(BACK_SENSOR_ECHO, INPUT_PULLDOWN);
   // set interrupt modes, link to input pins and ISRs
   attachInterrupt(digitalPinToInterrupt(FRONT_SENSOR_ECHO), ISR_Front_Sensor, CHANGE);
   attachInterrupt(digitalPinToInterrupt(BACK_SENSOR_ECHO), ISR_Back_Sensor, CHANGE);
 
-  // setup Serial
+  // We could use higher baudrates!
   Serial.begin(9600);
-
-  // init check_time
-  check_time = micros();
 
   // setup SD-Card
   if(!SD.begin()){
@@ -103,6 +101,11 @@ void setup() {
   uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   Serial.printf("SD Card Size: %lluMB\n", cardSize);
   sdcard_disabled = false;
+
+  // trigger the sensors by generating a pwm signal 
+  // both sensors have to be connected to the same trigger pin
+  ledcSetup(0, 40, 8);            // channel 0, 40Hz, 8-bit resolution
+  ledcAttachPin(TRIGGER_PIN, 0);  // attach TRIGGER_PIN to channel 0
 }
 
 void appendFile(fs::FS &fs, const char * path, const char * message) {
@@ -122,63 +125,24 @@ void appendFile(fs::FS &fs, const char * path, const char * message) {
   digitalWrite(GREEN_LED, LOW);
 }
 
-void appendMeasurement(int start_time, int mid_time, int end_time, int front_distance, int back_distance, int ground_truth1, int ground_truth2) {
+void appendMeasurement(float front_distance, float back_distance, int ground_truth1, int ground_truth2) {
   // To analyse the data more preciseley, we want to keep start and end time of all measurements.
   // This may be subject to change.
   char buf[128];
-  sprintf(buf, "%d,%d,%d,%d,%d,%d,%d\n", start_time,mid_time,end_time, front_distance,back_distance, ground_truth1,ground_truth2);
+  sprintf(buf, "%.2f,%.2f,%d,%d\n", front_distance,back_distance, ground_truth1,ground_truth2);
 
   //if (last_front_distance != front_distance || last_back_distance != back_distance || last_ground_truth1 != ground_truth1 || last_ground_truth2 != ground_truth2) {
     appendFile(SD, "/log.csv", buf);
   //}
-  last_front_distance = front_distance;
-  last_back_distance = back_distance;
-  last_ground_truth1 = ground_truth1;
-  last_ground_truth2 = ground_truth2;
+  // last_front_distance = front_distance;
+  // last_back_distance = back_distance;
+  // last_ground_truth1 = ground_truth1;
+  // last_ground_truth2 = ground_truth2;
 }
 
-int get_distance(int triggerPin, int echoPin) {
-  // Clears the trigPin
-  digitalWrite(triggerPin, LOW);
-  delayMicroseconds(2);
-  // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(triggerPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(triggerPin, LOW);
-  delayMicroseconds(2);
-  // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH, TIMEOUT);
-  // Calculating the distance
-  return duration*0.034/2;
-}
-
-void trigger_hcsr04() 
+void loop() 
 {
-  // Clears the trigPin
-  digitalWrite(FRONT_TRIGGER_PIN, LOW);
-  digitalWrite(BACK_TRIGGER_PIN, LOW);
-  delayMicroseconds(2);
-  // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(FRONT_TRIGGER_PIN, HIGH);
-  digitalWrite(BACK_TRIGGER_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(FRONT_TRIGGER_PIN, LOW);
-  digitalWrite(BACK_TRIGGER_PIN, LOW);
-  delayMicroseconds(2);
-}
-
-void loop() {
-  unsigned long startTime;
-  
-  if (micros() - check_time >= SAMPLE_INTERVAL) {
-    // send burst 
-    trigger_hcsr04();
-    startTime = micros();
-    check_time = micros();
-  }
-
-  int disable_write = digitalRead(DISABLE_WRITE);
-  if (disable_write) {
+  if (digitalRead(DISABLE_WRITE)) {
     // digitalWrite(GREEN_LED, HIGH);
     Serial.println("Write protection, skipping everything");
     return;
@@ -188,9 +152,9 @@ void loop() {
   
   if (state_front == READY && state_back == READY) {
     // both sensors are ready, save the measurements
-    int front_distance = flight_time_front * 0.034 / 2;
-    int back_distance = flight_time_back * 0.034 / 2;
-    appendMeasurement(startTime, /*midTime*/ startTime - flight_time_front, /*endTime*/ startTime - flight_time_back, front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
+    float front_distance = flight_time_front / 1000.0 * 34.3 / 2.0;   // (Flugzeit [us] / 1000.0) [ms] * Schallgeschwindigkeit [cm/ms] / 2 = Distanz [cm]
+    float back_distance = flight_time_back / 1000.0 * 34.3 / 2.0;
+    appendMeasurement(front_distance, back_distance, digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
     #ifdef DEBUG
       // Prints the distance on the Serial Monitor
       Serial.print(millis());
@@ -203,6 +167,4 @@ void loop() {
     state_back = !READY;
     state_front = !READY;
   }
-
-
 }
