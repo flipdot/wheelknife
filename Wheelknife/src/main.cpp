@@ -25,6 +25,8 @@ MovingAverage back_ma = MovingAverage(10);
 #define READY 1
 #define SAMPLE_INTERVAL 25e-3 // in s -> this is the hcsr04 timeout
 #define TRIGGER_PWM_FREQUENCY 1.0 / SAMPLE_INTERVAL
+#define CHANNEL 0
+#define DUTYCYCLE 127
 
 // state variables that indicate whether a measurement is in progress or ready
 volatile uint8_t state_front;
@@ -103,8 +105,9 @@ void setup() {
 
   // trigger the sensors continuously by generating a pwm signal
   // assumes both sensors are connected to the same trigger pin!
-  ledcSetup(0, TRIGGER_PWM_FREQUENCY, 8);   // channel 0, 40Hz, 8-bit resolution
-  ledcAttachPin(TRIGGER_PIN, 0);            // attach TRIGGER_PIN to channel 0
+  ledcSetup(CHANNEL, TRIGGER_PWM_FREQUENCY, 8); 
+  ledcAttachPin(TRIGGER_PIN, CHANNEL);            
+  ledcWrite(CHANNEL, DUTYCYCLE);
 }
 
 void appendFile(fs::FS &fs, const char *path, const char *message) {
