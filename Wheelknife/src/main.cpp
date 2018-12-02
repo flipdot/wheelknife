@@ -13,7 +13,7 @@
 #define DISABLE_WRITE     17
 #define GROUND_TRUTH_A    16
 #define GROUND_TRUTH_B    0
-#define DEBUG
+// #define DEBUG
 
 bool sdcard_disabled;
 MovingAverage front_ma = MovingAverage(10);
@@ -175,7 +175,6 @@ void loop()
 
   // both sensors are ready, save the measurements
   if (state_front == READY && state_back == READY) {
-    Serial.print(".");
     appendMeasurement(digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
     state_back = !READY;
     state_front = !READY;
