@@ -6,15 +6,14 @@
 
 #define LED_BUILTIN       2
 #define GREEN_LED         21
-// #define TRIGGER_PIN_FRONT 2
-// #define TRIGGER_PIN_BACK  32
 #define TRIGGER_PIN       2       // both sensors should be connected to a singel trigger signal now!
+#define TRIGGER_FB_PIN           // feedback of the trigger to capture measurements start time
 #define ECHO_PIN_FRONT    4
 #define ECHO_PIN_BACK     34
 #define DISABLE_WRITE     17
 #define GROUND_TRUTH_A    16
 #define GROUND_TRUTH_B    0
-//#define DEBUG
+// #define DEBUG
 
 bool sdcard_disabled;
 MovingAverage front_ma = MovingAverage(10);
@@ -23,7 +22,7 @@ MovingAverage back_ma = MovingAverage(10);
 /* Max' interrupt based stuff */
 #define MEASURING 0
 #define READY 1
-#define SAMPLE_INTERVAL 20e-3 
+#define SAMPLE_INTERVAL 25e-3 
 #define TRIGGER_PWM_FREQUENCY 1.0 / SAMPLE_INTERVAL
 #define CHANNEL 0
 #define DUTYCYCLE 127
@@ -34,35 +33,30 @@ volatile uint8_t state_back;
 // storing the flight time in us
 volatile unsigned long flight_time_front;
 volatile unsigned long flight_time_back;
-// measuremant start times
-// both sensors are getting the same trigger, so these should be nearly equal!
-volatile unsigned long start_time_front;
-volatile unsigned long start_time_back;
+// used to calc the flight time
+volatile unsigned long start_time;
 
 /* ISR to capture the flight time at the front sensor */
 void ISR_Front_Sensor()
 {
-  if (digitalRead(ECHO_PIN_FRONT)) {
-    start_time_front = micros();
-    state_front = MEASURING;
-  }
-  else {
-    flight_time_front = micros() - start_time_front;
-    state_front = READY;
-  }
+  flight_time_front = micros() - start_time;
+  state_front = READY;
 }
 
 /* ISR to capture the flight time at the front sensor */
 void ISR_Back_Sensor()
 {
-  if (digitalRead(ECHO_PIN_BACK)) {
-    start_time_back = micros();
-    state_back = MEASURING;
-  }
-  else {
-    flight_time_back = micros() - start_time_front;
-    state_back = READY;
-  }
+  flight_time_back = micros() - start_time;
+  state_back = READY;
+}
+
+/* ISR to capture the measurement start_time */
+void ISR_Start_Timt()
+{ 
+  // the measurement starts 452 us after triggering
+  start_time = micros() + 452;
+  state_front = MEASURING;
+  state_back = MEASURING;
 }
 
 void setup() {
@@ -80,11 +74,12 @@ void setup() {
   pinMode(ECHO_PIN_FRONT, INPUT_PULLDOWN);
   pinMode(ECHO_PIN_BACK, INPUT_PULLDOWN);
   // set interrupt modes, link to input pins and ISRs
-  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_FRONT), ISR_Front_Sensor, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_BACK), ISR_Back_Sensor, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_FRONT), ISR_Front_Sensor, LOW);
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_BACK), ISR_Back_Sensor, LOW);
+  attachInterrupt(digitalPinToInterrupt(TRIGGER_FB_PIN), ISR_Start_Timt, LOW);
 
   // We could use higher baudrates!
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // setup SD-Card
   if(!SD.begin()){
@@ -152,7 +147,7 @@ void appendMeasurement(bool ground_truth1, bool ground_truth2) {
   #endif
 
   // we need to save the measurements start time -> no continuous data tracking, only changes are saved
-  if (prev_front_distance != front_distance || prev_back_distance != back_distance || prev_ground_truth1 != ground_truth1 || prev_ground_truth2 != ground_truth2) {
+  // if (prev_front_distance != front_distance || prev_back_distance != back_distance || prev_ground_truth1 != ground_truth1 || prev_ground_truth2 != ground_truth2) {
     // buffer storing the appended string
     char buf[128];
 
@@ -163,7 +158,7 @@ void appendMeasurement(bool ground_truth1, bool ground_truth2) {
     prev_back_distance = back_distance;
     prev_ground_truth1 = ground_truth1;
     prev_ground_truth2 = ground_truth2;
-  }
+  // }
 }
 
 void loop() 
