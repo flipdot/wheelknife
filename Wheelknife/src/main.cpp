@@ -73,10 +73,12 @@ void setup() {
   // get inputs ready
   pinMode(ECHO_PIN_FRONT, INPUT_PULLDOWN);
   pinMode(ECHO_PIN_BACK, INPUT_PULLDOWN);
+  pinMode(TRIGGER_FB_PIN, INPUT_PULLDOWN);
+  
   // set interrupt modes, link to input pins and ISRs
-  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_FRONT), ISR_Front_Sensor, LOW);
-  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_BACK), ISR_Back_Sensor, LOW);
-  attachInterrupt(digitalPinToInterrupt(TRIGGER_FB_PIN), ISR_Start_Time, LOW);
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_FRONT), ISR_Front_Sensor, FALLING);
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN_BACK), ISR_Back_Sensor, FALLING);
+  attachInterrupt(digitalPinToInterrupt(TRIGGER_FB_PIN), ISR_Start_Time, FALLING);
 
   // We could use higher baudrates!
   Serial.begin(115200);
