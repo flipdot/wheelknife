@@ -23,7 +23,7 @@ MovingAverage back_ma = MovingAverage(10);
 /* Max' interrupt based stuff */
 #define MEASURING 0
 #define READY 1
-#define SAMPLE_INTERVAL 25e-3 // in s -> this is the hcsr04 timeout
+#define SAMPLE_INTERVAL 20e-3 
 #define TRIGGER_PWM_FREQUENCY 1.0 / SAMPLE_INTERVAL
 #define CHANNEL 0
 #define DUTYCYCLE 127
