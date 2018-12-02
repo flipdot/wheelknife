@@ -7,13 +7,13 @@
 #define LED_BUILTIN       2
 #define GREEN_LED         21
 #define TRIGGER_PIN       2       // both sensors should be connected to a singel trigger signal now!
-#define TRIGGER_FB_PIN           // feedback of the trigger to capture measurements start time
+#define TRIGGER_FB_PIN    15       // feedback of the trigger to capture measurements start time
 #define ECHO_PIN_FRONT    4
 #define ECHO_PIN_BACK     34
 #define DISABLE_WRITE     17
 #define GROUND_TRUTH_A    16
 #define GROUND_TRUTH_B    0
-// #define DEBUG
+#define DEBUG
 
 bool sdcard_disabled;
 MovingAverage front_ma = MovingAverage(10);
@@ -51,7 +51,7 @@ void ISR_Back_Sensor()
 }
 
 /* ISR to capture the measurement start_time */
-void ISR_Start_Timt()
+void ISR_Start_Time()
 { 
   // the measurement starts 452 us after triggering
   start_time = micros() + 452;
@@ -76,7 +76,7 @@ void setup() {
   // set interrupt modes, link to input pins and ISRs
   attachInterrupt(digitalPinToInterrupt(ECHO_PIN_FRONT), ISR_Front_Sensor, LOW);
   attachInterrupt(digitalPinToInterrupt(ECHO_PIN_BACK), ISR_Back_Sensor, LOW);
-  attachInterrupt(digitalPinToInterrupt(TRIGGER_FB_PIN), ISR_Start_Timt, LOW);
+  attachInterrupt(digitalPinToInterrupt(TRIGGER_FB_PIN), ISR_Start_Time, LOW);
 
   // We could use higher baudrates!
   Serial.begin(115200);
@@ -151,7 +151,7 @@ void appendMeasurement(bool ground_truth1, bool ground_truth2) {
     // buffer storing the appended string
     char buf[128];
 
-    sprintf(buf, "%lu, %d, %lu, %d, %d, %d\n", start_time_front, front_distance, start_time_back, back_distance, ground_truth1, ground_truth2);
+    sprintf(buf, "%lu, %d, %d, %d, %d\n", start_time, front_distance, back_distance, ground_truth1, ground_truth2);
     appendFile(SD, "/log.csv", buf);
 
     prev_front_distance = front_distance;
@@ -173,6 +173,7 @@ void loop()
 
   // both sensors are ready, save the measurements
   if (state_front == READY && state_back == READY) {
+    Serial.print(".");
     appendMeasurement(digitalRead(GROUND_TRUTH_A), digitalRead(GROUND_TRUTH_B));
     state_back = !READY;
     state_front = !READY;
